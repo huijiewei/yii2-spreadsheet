@@ -24,6 +24,8 @@ class Spreadsheet extends Component
     /* @var ActiveQuery */
     public $query;
 
+    public $data;
+
     public $batchSize = 500;
 
     public $title;
@@ -45,9 +47,6 @@ class Spreadsheet extends Component
 
     private $batchInfo;
     private $spreadsheet;
-
-    /* @var ActiveDataProvider */
-    private $dataProvider;
 
     public function configure($properties)
     {
@@ -73,6 +72,12 @@ class Spreadsheet extends Component
         }
     }
 
+    /**
+     * @param $attachmentName
+     * @param array $options
+     * @return Response
+     * @throws \yii\base\Exception
+     */
     public function send($attachmentName, $options = [])
     {
         $tmpFile = \Yii::getAlias('@runtime/temp/' .
@@ -114,12 +119,9 @@ class Spreadsheet extends Component
 
     public function render()
     {
-        $this->dataProvider = new ActiveDataProvider([
-            'query' => $this->query,
-            'pagination' => [
-                'pageSize' => $this->batchSize,
-            ],
-        ]);
+        if ($this->query == null && $this->data == null) {
+            throw new InvalidArgumentException('必须设置 query 或者 data');
+        }
 
         $document = $this->getDocument();
 
@@ -136,30 +138,46 @@ class Spreadsheet extends Component
 
         $this->rowIndex = 1;
 
-        $columnsInitialized = false;
-        $modelIndex = 0;
+        if ($this->query != null) {
+            return $this->renderQuery($activeSheet);
+        }
+
+        if ($this->data != null) {
+            return $this->renderData($activeSheet);
+        }
+
+        return false;
+    }
+
+    public function getDocument()
+    {
+        if (!is_object($this->spreadsheet)) {
+            $this->spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        }
+
+        return $this->spreadsheet;
+    }
+
+    private function renderQuery($activeSheet)
+    {
+        $dataProvider = new ActiveDataProvider([
+            'query' => $this->query,
+            'pagination' => [
+                'pageSize' => $this->batchSize,
+            ],
+        ]);
 
         $columns = $this->populateColumns($this->columns);
 
-        while (($models = $this->batchModels()) !== false) {
-            if (!$columnsInitialized) {
-                $columnsInitialized = true;
+        $this->renderColumns($activeSheet, $columns);
 
+        $modelIndex = 0;
+
+        while (($models = $this->batchModels($dataProvider)) !== false) {
+            foreach ($models as $model) {
                 $columnIndex = 'A';
 
-                foreach ($columns as $name => $column) {
-                    $activeSheet->setCellValue($columnIndex . $this->rowIndex, $name);
-
-                    $columnIndex++;
-                }
-
-                $this->rowIndex++;
-            }
-
-            foreach ($models as $index => $model) {
-                $columnIndex = 'A';
-
-                foreach ($columns as $name => $column) {
+                foreach ($columns as $column) {
                     if (is_array($column)) {
                         $columnValue = $this->getColumnData($model, $column);
                     } else {
@@ -182,15 +200,6 @@ class Spreadsheet extends Component
         $this->isRendered = true;
 
         return $this;
-    }
-
-    public function getDocument()
-    {
-        if (!is_object($this->spreadsheet)) {
-            $this->spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
-        }
-
-        return $this->spreadsheet;
     }
 
     private function populateColumns($columns = [])
@@ -223,7 +232,24 @@ class Spreadsheet extends Component
         return $result;
     }
 
-    protected function batchModels()
+    private function renderColumns($activeSheet, $columns)
+    {
+        $columnIndex = 'A';
+
+        foreach ($columns as $name => $column) {
+            $activeSheet->setCellValue($columnIndex . $this->rowIndex, $name);
+
+            $columnIndex++;
+        }
+
+        $this->rowIndex++;
+    }
+
+    /**
+     * @param $dataProvider ActiveDataProvider
+     * @return array|bool|mixed
+     */
+    protected function batchModels($dataProvider)
     {
         if ($this->batchInfo === null) {
             if ($this->query !== null && method_exists($this->query, 'batch')) {
@@ -232,7 +258,7 @@ class Spreadsheet extends Component
                 ];
             } else {
                 $this->batchInfo = [
-                    'pagination' => $this->dataProvider->getPagination(),
+                    'pagination' => $dataProvider->getPagination(),
                     'page' => 0
                 ];
             }
@@ -261,15 +287,15 @@ class Spreadsheet extends Component
                 if ($page === 0) {
                     $this->batchInfo['page']++;
 
-                    return $this->dataProvider->getModels();
+                    return $dataProvider->getModels();
                 }
             } else {
                 if ($page < $pagination->pageCount) {
                     $pagination->setPage($page);
-                    $this->dataProvider->prepare(true);
+                    $dataProvider->prepare(true);
                     $this->batchInfo['page']++;
 
-                    return $this->dataProvider->getModels();
+                    return $dataProvider->getModels();
                 }
             }
 
@@ -308,5 +334,29 @@ class Spreadsheet extends Component
             gc_enable();
         }
         gc_collect_cycles();
+    }
+
+    private function renderData($activeSheet)
+    {
+        $columns = $this->columns;
+
+        $this->renderColumns($activeSheet, $columns);
+
+        $modelIndex = 0;
+
+        foreach ($this->data as $model) {
+            $columnIndex = 'A';
+
+            foreach ($columns as $column) {
+                $activeSheet->setCellValue($columnIndex . $this->rowIndex, $model[$column]);
+                $columnIndex++;
+            }
+
+            $this->rowIndex++;
+
+            $modelIndex++;
+        }
+
+        $this->isRendered = true;
     }
 }
