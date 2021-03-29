@@ -184,7 +184,7 @@ class Spreadsheet extends Component
                         $columnValue = $this->getColumnData($model, ['attribute' => $column]);
                     }
 
-                    $activeSheet->setCellValue($columnIndex . $this->rowIndex, $columnValue);
+                    $this->renderCell($activeSheet, $columnIndex . $this->rowIndex, $columnValue);
 
                     $columnIndex++;
                 }
@@ -348,7 +348,8 @@ class Spreadsheet extends Component
             $columnIndex = 'A';
 
             foreach ($columns as $column) {
-                $activeSheet->setCellValue($columnIndex . $this->rowIndex, $model[$column]);
+                $this->renderCell($activeSheet, $columnIndex . $this->rowIndex, $model[$column]);
+
                 $columnIndex++;
             }
 
@@ -358,5 +359,35 @@ class Spreadsheet extends Component
         }
 
         $this->isRendered = true;
+    }
+
+    private function renderCell($activeSheet, $cell, $value)
+    {
+        if (is_array($value)) {
+            $activeSheet->setCellValue($cell, $value['value']);
+            $this->applyCellStyle($activeSheet, $cell, isset($value['style']) ? $value['style'] : []);
+        } else {
+            $activeSheet->setCellValue($cell, $value);
+        }
+    }
+
+    private function applyCellStyle($activeSheet, $cell, $style)
+    {
+        if (empty($style)) {
+            return;
+        }
+
+        $cellStyle = $activeSheet->getStyle($cell);
+
+        if (isset($style['alignment'])) {
+            $cellStyle->getAlignment()->applyFromArray($style['alignment']);
+            unset($style['alignment']);
+
+            if (empty($style)) {
+                return;
+            }
+        }
+
+        $cellStyle->applyFromArray($style);
     }
 }
