@@ -6,12 +6,12 @@
   "authors": [
     {
       "name": "Huijie Wei",
-      "email": "huijiewei@outlook.com"
+      "email": "huijiewei@gmail.com"
     }
   ],
   "require": {
     "yiisoft/yii2": "^2.0",
-    "phpoffice/phpspreadsheet": "^3.0"
+    "phpoffice/phpspreadsheet": "^1.25.2"
   },
   "autoload": {
     "psr-4": {

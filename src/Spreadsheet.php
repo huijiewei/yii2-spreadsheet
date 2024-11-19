@@ -1,14 +1,10 @@
 <?php
-/**
- * Created by PhpStorm.
- * User: huijiewei
- * Date: 2018/7/28
- * Time: 15:42
- */
 
 namespace huijiewei\spreadsheet;
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use yii\base\Component;
 use yii\base\InvalidArgumentException;
 use yii\base\InvalidConfigException;
@@ -171,8 +167,6 @@ class Spreadsheet extends Component
 
         $this->renderColumns($activeSheet, $columns);
 
-        $modelIndex = 0;
-
         while (($models = $this->batchModels($dataProvider)) !== false) {
             foreach ($models as $model) {
                 $columnIndex = 'A';
@@ -190,8 +184,6 @@ class Spreadsheet extends Component
                 }
 
                 $this->rowIndex++;
-
-                $modelIndex++;
             }
 
             $this->gc();
@@ -232,11 +224,17 @@ class Spreadsheet extends Component
         return $result;
     }
 
+    /**
+     * @param $activeSheet Worksheet
+     * @param $columns
+     * @return void
+     */
     private function renderColumns($activeSheet, $columns)
     {
         $columnIndex = 'A';
 
         foreach ($columns as $name => $column) {
+            $activeSheet->getColumnDimension($columnIndex)->setAutoSize(true);
             $activeSheet->setCellValue($columnIndex . $this->rowIndex, $name);
 
             $columnIndex++;
@@ -325,6 +323,13 @@ class Spreadsheet extends Component
             $value = $this->formatter->format($value, $params['format']);
         }
 
+        if (isset($params['style'])) {
+            return [
+                'value' => $value,
+                'style' => $params['style']
+            ];
+        }
+
         return $value;
     }
 
@@ -336,31 +341,43 @@ class Spreadsheet extends Component
         gc_collect_cycles();
     }
 
+    /**
+     * @param $activeSheet Worksheet
+     * @return void
+     */
     private function renderData($activeSheet)
     {
-        $columns = $this->columns;
+        $columns = $this->populateColumns($this->columns);
 
         $this->renderColumns($activeSheet, $columns);
-
-        $modelIndex = 0;
 
         foreach ($this->data as $model) {
             $columnIndex = 'A';
 
             foreach ($columns as $column) {
-                $this->renderCell($activeSheet, $columnIndex . $this->rowIndex, $model[$column]);
+                if (is_array($column)) {
+                    $columnValue = $this->getColumnData($model, $column);
+                } else {
+                    $columnValue = $this->getColumnData($model, ['attribute' => $column]);
+                }
+
+                $this->renderCell($activeSheet, $columnIndex . $this->rowIndex, $columnValue);
 
                 $columnIndex++;
             }
 
             $this->rowIndex++;
-
-            $modelIndex++;
         }
 
         $this->isRendered = true;
     }
 
+    /**
+     * @param $activeSheet Worksheet
+     * @param $cell
+     * @param $value
+     * @return void
+     */
     private function renderCell($activeSheet, $cell, $value)
     {
         if (is_array($value)) {
@@ -369,6 +386,8 @@ class Spreadsheet extends Component
         } else {
             $activeSheet->setCellValue($cell, $value);
         }
+
+        $activeSheet->getStyle($cell)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
     }
 
     private function applyCellStyle($activeSheet, $cell, $style)
@@ -377,17 +396,6 @@ class Spreadsheet extends Component
             return;
         }
 
-        $cellStyle = $activeSheet->getStyle($cell);
-
-        if (isset($style['alignment'])) {
-            $cellStyle->getAlignment()->applyFromArray($style['alignment']);
-            unset($style['alignment']);
-
-            if (empty($style)) {
-                return;
-            }
-        }
-
-        $cellStyle->applyFromArray($style);
+        $activeSheet->getStyle($cell)->applyFromArray($style);
     }
 }
