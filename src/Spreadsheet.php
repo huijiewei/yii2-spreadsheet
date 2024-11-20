@@ -115,7 +115,7 @@ class Spreadsheet extends Component
 
     public function render()
     {
-        if ($this->query == null && $this->data == null) {
+        if ($this->query == null && $this->data === null) {
             throw new InvalidArgumentException('必须设置 query 或者 data');
         }
 
@@ -138,7 +138,7 @@ class Spreadsheet extends Component
             return $this->renderQuery($activeSheet);
         }
 
-        if ($this->data != null) {
+        if ($this->data !== null) {
             return $this->renderData($activeSheet);
         }
 
