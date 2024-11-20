@@ -330,6 +330,13 @@ class Spreadsheet extends Component
             ];
         }
 
+        if (isset($params['type'])) {
+            return [
+                'value' => $value,
+                'type' => $params['type']
+            ];
+        }
+
         return $value;
     }
 
@@ -381,21 +388,20 @@ class Spreadsheet extends Component
     private function renderCell($activeSheet, $cell, $value)
     {
         if (is_array($value)) {
-            $activeSheet->setCellValue($cell, $value['value']);
-            $this->applyCellStyle($activeSheet, $cell, isset($value['style']) ? $value['style'] : []);
+
+            if (isset($value['type']) && !empty($value['type'])) {
+                $activeSheet->setCellValueExplicit($cell, $value['value'], $value['type']);
+            } else {
+                $activeSheet->setCellValue($cell, $value['value']);
+            }
+
+            if (isset($value['style']) && !empty($value['style'])) {
+                $activeSheet->getStyle($cell)->applyFromArray($value['style']);
+            }
         } else {
             $activeSheet->setCellValue($cell, $value);
         }
 
         $activeSheet->getStyle($cell)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
-    }
-
-    private function applyCellStyle($activeSheet, $cell, $style)
-    {
-        if (empty($style)) {
-            return;
-        }
-
-        $activeSheet->getStyle($cell)->applyFromArray($style);
     }
 }
