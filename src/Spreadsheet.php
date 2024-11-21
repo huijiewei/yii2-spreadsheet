@@ -30,16 +30,12 @@ class Spreadsheet extends Component
     public $formatter;
 
     public $columns = [];
-    public $headerColumnUnions = [];
-
-    public $emptyCell = '';
-
-    public $nullDisplay = '';
 
     public $writerType;
-    public $rowIndex;
 
     protected $isRendered = false;
+
+    private $rowIndex;
 
     private $batchInfo;
     private $spreadsheet;
@@ -91,7 +87,7 @@ class Spreadsheet extends Component
         return \Yii::$app->getResponse()->sendFile($tmpFile, $attachmentName, $options);
     }
 
-    private function save($filename)
+    public function save($filename)
     {
         if (!$this->isRendered) {
             $this->render();
@@ -113,7 +109,7 @@ class Spreadsheet extends Component
         $writer->save($filename);
     }
 
-    public function render()
+    private function render()
     {
         if ($this->query == null && $this->data === null) {
             throw new InvalidArgumentException('必须设置 query 或者 data');
@@ -145,7 +141,7 @@ class Spreadsheet extends Component
         return false;
     }
 
-    public function getDocument()
+    private function getDocument()
     {
         if (!is_object($this->spreadsheet)) {
             $this->spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
